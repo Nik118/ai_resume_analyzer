@@ -10,8 +10,7 @@ import csv
 from db import models, database
 from services import parser, skills, ranker, llm
 
-# Create database tables
-models.Base.metadata.create_all(bind=database.engine)
+# Database tables will be managed by Alembic migrations now
 
 app = FastAPI(title="AI Resume Screening API")
 
