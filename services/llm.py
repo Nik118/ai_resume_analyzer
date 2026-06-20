@@ -38,14 +38,12 @@ def extract_advanced_info(resume_text: str) -> dict:
                 'response_schema': ExtractedInfo,
             },
         )
-        # Gemini sometimes wraps JSON in markdown blocks even with response_mime_type
-        raw_text = response.text.strip()
-        if raw_text.startswith("```json"):
-            raw_text = raw_text[7:-3].strip()
-        elif raw_text.startswith("```"):
-            raw_text = raw_text[3:-3].strip()
-            
-        return json.loads(raw_text)
+        # Using Structured Outputs (response_schema) guarantees correct JSON.
+        # The SDK natively parses it into the Pydantic model at `response.parsed`
+        if response.parsed:
+            return response.parsed.model_dump()
+        else:
+            return json.loads(response.text)
     except Exception as e:
         print(f"LLM Extraction failed: {e}")
         return {

@@ -39,16 +39,24 @@ class RankedCandidateResponse(CandidateResponse):
 
 # --- Endpoints ---
 def _format_resume(c: models.Resume) -> dict:
-    past_titles = json.loads(c.past_titles) if c.past_titles else []
-    if not isinstance(past_titles, list):
+    try:
+        past_titles = json.loads(c.past_titles) if c.past_titles else []
+        if not isinstance(past_titles, list):
+            past_titles = []
+    except json.JSONDecodeError:
         past_titles = []
+        
+    try:
+        skills_list = json.loads(c.skills) if c.skills else []
+    except json.JSONDecodeError:
+        skills_list = []
         
     return {
         "id": c.id,
         "filename": c.filename,
         "email": c.email,
         "phone": c.phone,
-        "skills": json.loads(c.skills) if c.skills else [],
+        "skills": skills_list,
         "summary": c.summary,
         "experience_years": c.experience_years,
         "education": c.education,
@@ -133,10 +141,7 @@ def get_candidate(candidate_id: int, db: Session = Depends(database.get_db)):
 @app.get("/candidates/", response_model=list[CandidateResponse])
 def list_candidates(skip: int = 0, limit: int = 100, db: Session = Depends(database.get_db)):
     candidates = db.query(models.Resume).offset(skip).limit(limit).all()
-    result = []
-    for c in candidates:
-        result.append(CandidateResponse(**_format_resume(c)))
-    return result
+    return [_format_resume(c) for c in candidates]
 
 @app.post("/rank/", response_model=list[RankedCandidateResponse])
 def rank_candidates_endpoint(job: JobDescription, db: Session = Depends(database.get_db)):
