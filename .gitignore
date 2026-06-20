@@ -22,3 +22,6 @@ Thumbs.db
 .idea/
 *.swp
 .env
+
+# Documentation
+code_flow_guide.md
