@@ -1,4 +1,3 @@
-import os
 import json
 from google import genai
 from pydantic import BaseModel
