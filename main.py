@@ -1,7 +1,7 @@
 from fastapi import FastAPI, UploadFile, File, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 import json
 import zipfile
 import io
@@ -29,8 +29,7 @@ class CandidateResponse(BaseModel):
     education: str | None
     past_titles: list[str] | None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class RankedCandidateResponse(CandidateResponse):
     score: float
