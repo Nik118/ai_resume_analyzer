@@ -1,24 +1,35 @@
+import os
+import json
 from fastapi import FastAPI, UploadFile, File, Depends, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, ConfigDict
-import json
-import zipfile
-import io
-import csv
+from fastapi.middleware.cors import CORSMiddleware
 
 from db import models, database
-from services import parser, skills, ranker, llm
+from services import parser, skills, llm, scraper
 
-# Database tables will be managed by Alembic migrations now
+app = FastAPI()
 
-app = FastAPI(title="AI Resume Screening API")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+if not os.path.exists("static"):
+    os.makedirs("static")
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+@app.get("/")
+def serve_frontend():
+    return FileResponse("static/index.html")
 
 # --- Schemas ---
-class JobDescription(BaseModel):
-    description: str
-
-class CandidateResponse(BaseModel):
+class ResumeVersionResponse(BaseModel):
     id: int
     filename: str
     email: str | None
@@ -28,28 +39,55 @@ class CandidateResponse(BaseModel):
     experience_years: int | None
     education: str | None
     past_titles: list[str] | None
+    ats_score: int | None
+    strengths: list[str] | None
+    weaknesses: list[str] | None
+    room_for_improvements: list[str] | None
 
     model_config = ConfigDict(from_attributes=True)
 
-class RankedCandidateResponse(CandidateResponse):
-    score: float
-    pros: list[str]
-    cons: list[str]
+class JobTargetResponse(BaseModel):
+    id: int
+    resume_id: int
+    job_description: str
+    company_url: str | None
+    company_name: str | None
+    fit_score: int | None
+    aligned_skills: list[str] | None
+    missing_skills: list[str] | None
+    jd_positives: list[str] | None
+    jd_negatives: list[str] | None
+    company_stability_insights: list[str] | None
+    tailored_summary: str | None
+    tailored_bullets: list[str] | None
+    cover_letter: str | None
+    interview_prep: list[dict] | None
+    status: str
 
-# --- Endpoints ---
-def _format_resume(c: models.Resume) -> dict:
-    try:
-        past_titles = json.loads(c.past_titles) if c.past_titles else []
-        if not isinstance(past_titles, list):
-            past_titles = []
-    except json.JSONDecodeError:
-        past_titles = []
-        
-    try:
-        skills_list = json.loads(c.skills) if c.skills else []
-    except json.JSONDecodeError:
-        skills_list = []
-        
+    model_config = ConfigDict(from_attributes=True)
+
+class JDAnalyzePayload(BaseModel):
+    job_description: str
+    company_url: str | None = None
+
+def _format_resume(c: models.ResumeVersion) -> dict:
+    try: skills_list = json.loads(c.skills) if c.skills else []
+    except: skills_list = []
+    try: strengths_list = json.loads(c.strengths) if c.strengths else []
+    except: strengths_list = []
+    try: weaknesses_list = json.loads(c.weaknesses) if c.weaknesses else []
+    except: weaknesses_list = []
+    try: past_titles = json.loads(c.past_titles) if c.past_titles else []
+    except: past_titles = []
+    try: 
+        parsed = json.loads(c.general_feedback) if c.general_feedback else []
+        if isinstance(parsed, list):
+            improvements_list = parsed
+        else:
+            improvements_list = [str(parsed)]
+    except: 
+        improvements_list = [c.general_feedback] if c.general_feedback else []
+    
     return {
         "id": c.id,
         "filename": c.filename,
@@ -59,35 +97,73 @@ def _format_resume(c: models.Resume) -> dict:
         "summary": c.summary,
         "experience_years": c.experience_years,
         "education": c.education,
-        "past_titles": past_titles
+        "past_titles": past_titles,
+        "ats_score": c.ats_score,
+        "strengths": strengths_list,
+        "weaknesses": weaknesses_list,
+        "room_for_improvements": improvements_list
     }
 
-@app.post("/upload/", response_model=CandidateResponse)
+def _format_job_target(jt: models.JobTarget) -> dict:
+    try: aligned = json.loads(jt.aligned_skills) if jt.aligned_skills else []
+    except: aligned = []
+    try: missing = json.loads(jt.missing_skills) if jt.missing_skills else []
+    except: missing = []
+    try: bullets = json.loads(jt.tailored_bullets) if jt.tailored_bullets else []
+    except: bullets = []
+    try: prep = json.loads(jt.interview_prep) if jt.interview_prep else []
+    except: prep = []
+    try: pos = json.loads(jt.jd_positives) if jt.jd_positives else []
+    except: pos = []
+    try: neg = json.loads(jt.jd_negatives) if jt.jd_negatives else []
+    except: neg = []
+    try: cs = json.loads(jt.company_stability_summary) if jt.company_stability_summary else []
+    except: cs = [jt.company_stability_summary] if jt.company_stability_summary else []
+
+    return {
+        "id": jt.id,
+        "resume_id": jt.resume_id,
+        "job_description": jt.job_description,
+        "company_url": jt.company_url,
+        "company_name": jt.company_name,
+        "fit_score": jt.fit_score,
+        "aligned_skills": aligned,
+        "missing_skills": missing,
+        "jd_positives": pos,
+        "jd_negatives": neg,
+        "company_stability_insights": cs,
+        "tailored_summary": jt.tailored_summary,
+        "tailored_bullets": bullets,
+        "cover_letter": jt.cover_letter,
+        "interview_prep": prep,
+        "status": jt.status
+    }
+
+# --- Endpoints ---
+
+@app.get("/resumes/", response_model=list[ResumeVersionResponse])
+def get_resumes(db: Session = Depends(database.get_db)):
+    resumes = db.query(models.ResumeVersion).order_by(models.ResumeVersion.id.desc()).all()
+    return [_format_resume(r) for r in resumes]
+
+@app.post("/resumes/", response_model=ResumeVersionResponse)
 def upload_resume(file: UploadFile = File(...), db: Session = Depends(database.get_db)):
     if not (file.filename.lower().endswith('.pdf') or file.filename.lower().endswith('.docx')):
         raise HTTPException(status_code=400, detail="Only PDF and DOCX files are supported.")
         
     contents = file.file.read()
     
-    return process_single_resume(contents, file.filename, db)
-
-def process_single_resume(contents: bytes, filename: str, db: Session):
     try:
-        # 1. Parse text
-        extracted_text = parser.extract_text(contents, filename)
-        
-        # 2. Extract basic information
+        extracted_text = parser.extract_text(contents, file.filename)
         email = skills.extract_email(extracted_text)
         phone = skills.extract_phone(extracted_text)
         extracted_skills = skills.extract_skills(extracted_text)
         
-        # 3. Extract advanced info via LLM
         advanced_info = llm.extract_advanced_info(extracted_text)
         past_titles = advanced_info.get("past_titles") or []
         
-        # 4. Save to database
-        db_resume = models.Resume(
-            filename=filename,
+        db_resume = models.ResumeVersion(
+            filename=file.filename,
             extracted_text=extracted_text,
             email=email,
             phone=phone,
@@ -95,106 +171,197 @@ def process_single_resume(contents: bytes, filename: str, db: Session):
             summary=advanced_info.get("summary"),
             experience_years=advanced_info.get("experience_years"),
             education=advanced_info.get("education"),
-            past_titles=json.dumps(past_titles)
+            past_titles=json.dumps(past_titles),
+            ats_score=advanced_info.get("ats_score"),
+            strengths=json.dumps(advanced_info.get("strengths") or []),
+            weaknesses=json.dumps(advanced_info.get("weaknesses") or []),
+            general_feedback=json.dumps(advanced_info.get("room_for_improvements") or [])
         )
         db.add(db_resume)
         db.commit()
         db.refresh(db_resume)
         
-        return CandidateResponse(**_format_resume(db_resume))
+        return ResumeVersionResponse(**_format_resume(db_resume))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error processing {filename}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error processing {file.filename}: {str(e)}")
 
-@app.post("/upload/batch/", response_model=list[CandidateResponse])
-def upload_batch_resumes(file: UploadFile = File(...), db: Session = Depends(database.get_db)):
-    if not file.filename.lower().endswith('.zip'):
-        raise HTTPException(status_code=400, detail="Only ZIP files are supported for batch upload.")
-        
-    contents = file.file.read()
-    results = []
-    
-    try:
-        with zipfile.ZipFile(io.BytesIO(contents)) as z:
-            for zip_info in z.infolist():
-                if zip_info.is_dir() or zip_info.filename.startswith('__MACOSX/'):
-                    continue
-                if zip_info.filename.lower().endswith('.pdf') or zip_info.filename.lower().endswith('.docx'):
-                    file_bytes = z.read(zip_info.filename)
-                    # Use only the base filename
-                    base_filename = zip_info.filename.split('/')[-1]
-                    res = process_single_resume(file_bytes, base_filename, db)
-                    results.append(res)
-    except zipfile.BadZipFile:
-        raise HTTPException(status_code=400, detail="Invalid ZIP file.")
-        
-    return results
+@app.delete("/resumes/{resume_id}")
+def delete_resume(resume_id: int, db: Session = Depends(database.get_db)):
+    resume = db.query(models.ResumeVersion).filter(models.ResumeVersion.id == resume_id).first()
+    if not resume:
+        raise HTTPException(status_code=404, detail="Resume not found")
+    db.delete(resume)
+    db.commit()
+    return {"status": "deleted"}
 
-@app.get("/candidates/{candidate_id}", response_model=CandidateResponse)
-def get_candidate(candidate_id: int, db: Session = Depends(database.get_db)):
-    db_resume = db.query(models.Resume).filter(models.Resume.id == candidate_id).first()
-    if db_resume is None:
-        raise HTTPException(status_code=404, detail="Candidate not found")
+@app.post("/resumes/{resume_id}/roast")
+def roast_resume(resume_id: int, db: Session = Depends(database.get_db)):
+    resume = db.query(models.ResumeVersion).filter(models.ResumeVersion.id == resume_id).first()
+    if not resume:
+        raise HTTPException(status_code=404, detail="Resume not found")
         
-    return CandidateResponse(**_format_resume(db_resume))
+    roast = llm.generate_resume_roast(resume.extracted_text)
+    return {"roast": roast}
 
-@app.get("/candidates/", response_model=list[CandidateResponse])
-def list_candidates(skip: int = 0, limit: int = 100, db: Session = Depends(database.get_db)):
-    candidates = db.query(models.Resume).offset(skip).limit(limit).all()
-    return [_format_resume(c) for c in candidates]
 
-@app.post("/rank/", response_model=list[RankedCandidateResponse])
-def rank_candidates_endpoint(job: JobDescription, db: Session = Depends(database.get_db)):
-    candidates = db.query(models.Resume).all()
-    if not candidates:
-        return []
-        
-    candidate_list = []
-    for c in candidates:
-        formatted = _format_resume(c)
-        formatted["text"] = c.extracted_text
-        candidate_list.append(formatted)
-        
-    jd_skills = skills.extract_skills(job.description)
-    ranked = ranker.rank_candidates(job.description, jd_skills, candidate_list)
-    
-    response = []
-    for r in ranked:
-        response.append(RankedCandidateResponse(**r))
-        
-    return response
+# --- Job Target Endpoints ---
 
-@app.post("/rank/export/")
-def export_ranked_candidates_csv(job: JobDescription, db: Session = Depends(database.get_db)):
-    ranked_candidates = rank_candidates_endpoint(job, db)
-    
-    output = io.StringIO()
-    writer = csv.writer(output)
-    
-    # Write header
-    writer.writerow([
-        "ID", "Filename", "Score", "Email", "Phone", "Experience Years", 
-        "Education", "Summary", "Pros", "Cons", "Skills", "Past Titles"
-    ])
-    
-    for c in ranked_candidates:
-        writer.writerow([
-            c.id, 
-            c.filename, 
-            round(c.score, 4), 
-            c.email, 
-            c.phone, 
-            c.experience_years,
-            c.education,
-            c.summary,
-            ", ".join(c.pros),
-            ", ".join(c.cons),
-            ", ".join(c.skills),
-            ", ".join(c.past_titles) if c.past_titles else ""
-        ])
+@app.get("/resumes/{resume_id}/jobs", response_model=list[JobTargetResponse])
+def get_job_targets(resume_id: int, db: Session = Depends(database.get_db)):
+    # Rank by fit_score descending
+    jobs = db.query(models.JobTarget).filter(models.JobTarget.resume_id == resume_id).order_by(models.JobTarget.fit_score.desc()).all()
+    return [_format_job_target(jt) for jt in jobs]
+
+@app.post("/resumes/{resume_id}/jobs", response_model=JobTargetResponse)
+async def analyze_job(resume_id: int, payload: JDAnalyzePayload, db: Session = Depends(database.get_db)):
+    resume = db.query(models.ResumeVersion).filter(models.ResumeVersion.id == resume_id).first()
+    if not resume:
+        raise HTTPException(status_code=404, detail="Resume not found")
         
-    output.seek(0)
-    return StreamingResponse(
-        iter([output.getvalue()]),
-        media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=ranked_candidates.csv"}
+    # Scrape company info if URL provided
+    company_text = ""
+    if payload.company_url:
+        company_text = await scraper.scrape_company_url(payload.company_url)
+        
+    # Analyze fit
+    fit_data = llm.analyze_job_fit(resume.extracted_text, payload.job_description, company_text)
+    
+    jt = models.JobTarget(
+        resume_id=resume.id,
+        job_description=payload.job_description,
+        company_url=payload.company_url,
+        company_name=fit_data.get("company_name", "Unknown Company") or "Unknown Company",
+        fit_score=fit_data.get("fit_score", 0),
+        aligned_skills=json.dumps(fit_data.get("aligned_skills", [])),
+        missing_skills=json.dumps(fit_data.get("missing_skills", [])),
+        jd_positives=json.dumps(fit_data.get("jd_positives", [])),
+        jd_negatives=json.dumps(fit_data.get("jd_negatives", [])),
+        company_stability_summary=json.dumps(fit_data.get("company_stability_insights", []))
     )
+    db.add(jt)
+    db.commit()
+    db.refresh(jt)
+    
+    return JobTargetResponse(**_format_job_target(jt))
+
+@app.delete("/job_targets/{jt_id}")
+def delete_job_target(jt_id: int, db: Session = Depends(database.get_db)):
+    jt = db.query(models.JobTarget).filter(models.JobTarget.id == jt_id).first()
+    if not jt:
+        raise HTTPException(status_code=404, detail="Job Target not found")
+    db.delete(jt)
+    db.commit()
+    return {"status": "deleted"}
+
+class StatusUpdate(BaseModel):
+    status: str
+
+@app.patch("/job_targets/{jt_id}/status", response_model=JobTargetResponse)
+def update_job_status(jt_id: int, payload: StatusUpdate, db: Session = Depends(database.get_db)):
+    jt = db.query(models.JobTarget).filter(models.JobTarget.id == jt_id).first()
+    if not jt:
+        raise HTTPException(status_code=404, detail="Job Target not found")
+    jt.status = payload.status
+    db.commit()
+    db.refresh(jt)
+    return JobTargetResponse(**_format_job_target(jt))
+
+@app.get("/resumes/{resume_id}/analytics")
+def get_resume_analytics(resume_id: int, db: Session = Depends(database.get_db)):
+    jobs = db.query(models.JobTarget).filter(models.JobTarget.resume_id == resume_id).all()
+    if not jobs:
+        return {"average_fit": 0, "missing_skills_freq": []}
+        
+    total_fit = 0
+    missing_freq = {}
+    
+    for jt in jobs:
+        total_fit += (jt.fit_score or 0)
+        try:
+            missing = json.loads(jt.missing_skills) if jt.missing_skills else []
+            for skill in missing:
+                skill_clean = skill.strip().lower()
+                missing_freq[skill_clean] = missing_freq.get(skill_clean, 0) + 1
+        except:
+            pass
+            
+    avg_fit = total_fit // len(jobs)
+    
+    # Sort by frequency descending
+    sorted_skills = [{"skill": k.title(), "count": v} for k, v in sorted(missing_freq.items(), key=lambda item: item[1], reverse=True)]
+    
+    return {
+        "average_fit": avg_fit,
+        "missing_skills_freq": sorted_skills[:10] # Top 10
+    }
+
+@app.post("/job_targets/{jt_id}/refresh", response_model=JobTargetResponse)
+async def refresh_job_target(jt_id: int, db: Session = Depends(database.get_db)):
+    jt = db.query(models.JobTarget).filter(models.JobTarget.id == jt_id).first()
+    if not jt:
+        raise HTTPException(status_code=404, detail="Job Target not found")
+        
+    resume = db.query(models.ResumeVersion).filter(models.ResumeVersion.id == jt.resume_id).first()
+    
+    # Scrape company info if URL provided
+    company_text = ""
+    if jt.company_url:
+        company_text = await scraper.scrape_company_url(jt.company_url)
+        
+    # Analyze fit
+    fit_data = llm.analyze_job_fit(resume.extracted_text, jt.job_description, company_text)
+    
+    jt.company_name = fit_data.get("company_name", jt.company_name) or jt.company_name
+    jt.fit_score = fit_data.get("fit_score", 0)
+    jt.aligned_skills = json.dumps(fit_data.get("aligned_skills", []))
+    jt.missing_skills = json.dumps(fit_data.get("missing_skills", []))
+    jt.jd_positives = json.dumps(fit_data.get("jd_positives", []))
+    jt.jd_negatives = json.dumps(fit_data.get("jd_negatives", []))
+    jt.company_stability_summary = json.dumps(fit_data.get("company_stability_insights", []))
+    
+    db.commit()
+    db.refresh(jt)
+    
+    return JobTargetResponse(**_format_job_target(jt))
+
+@app.post("/job_targets/{jt_id}/tailor", response_model=JobTargetResponse)
+def tailor_resume(jt_id: int, db: Session = Depends(database.get_db)):
+    jt = db.query(models.JobTarget).filter(models.JobTarget.id == jt_id).first()
+    if not jt:
+        raise HTTPException(status_code=404, detail="Job Target not found")
+        
+    resume = db.query(models.ResumeVersion).filter(models.ResumeVersion.id == jt.resume_id).first()
+    
+    tailored_data = llm.tailor_resume(resume.extracted_text, jt.job_description)
+    
+    jt.tailored_summary = tailored_data.get("summary")
+    jt.tailored_bullets = json.dumps(tailored_data.get("bullets", []))
+    db.commit()
+    
+    return JobTargetResponse(**_format_job_target(jt))
+
+@app.post("/job_targets/{jt_id}/cover_letter")
+def generate_cover_letter(jt_id: int, db: Session = Depends(database.get_db)):
+    jt = db.query(models.JobTarget).filter(models.JobTarget.id == jt_id).first()
+    if not jt:
+        raise HTTPException(status_code=404, detail="Job Target not found")
+    
+    resume = db.query(models.ResumeVersion).filter(models.ResumeVersion.id == jt.resume_id).first()
+    
+    cover_letter = llm.generate_cover_letter(resume.extracted_text, jt.job_description)
+    jt.cover_letter = cover_letter
+    db.commit()
+    return {"cover_letter": cover_letter}
+
+@app.post("/job_targets/{jt_id}/interview_prep")
+def generate_interview_prep(jt_id: int, db: Session = Depends(database.get_db)):
+    jt = db.query(models.JobTarget).filter(models.JobTarget.id == jt_id).first()
+    if not jt:
+        raise HTTPException(status_code=404, detail="Job Target not found")
+    
+    resume = db.query(models.ResumeVersion).filter(models.ResumeVersion.id == jt.resume_id).first()
+    
+    prep = llm.generate_interview_prep(resume.extracted_text, jt.job_description)
+    jt.interview_prep = json.dumps(prep)
+    db.commit()
+    return {"questions": prep}
