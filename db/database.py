@@ -5,6 +5,9 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 # Use DATABASE_URL env var if available (for Heroku/Render), fallback to local postgres
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
 
+if not SQLALCHEMY_DATABASE_URL:
+    raise ValueError("DATABASE_URL environment variable is not set! Set it in your .env or Render environment.")
+
 # Cloud providers sometimes inject "postgres://" instead of "postgresql://"
 if SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
     SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgres://", "postgresql://", 1)
