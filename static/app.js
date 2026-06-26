@@ -30,8 +30,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const originalContent = btn.innerHTML;
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
         try {
-            const response = await fetch(`${API_BASE}/job_targets/${activeJobId}/refresh`, { method: 'POST' });
-            if (!response.ok) throw new Error('Failed to refresh job');
+            const token = localStorage.getItem('adminToken') || '';
+            const headers = { 'Content-Type': 'application/json' };
+            if (token) headers['X-Admin-Token'] = token;
+            
+            const response = await fetch(`${API_BASE}/job_targets/${activeJobId}/refresh`, { 
+                method: 'POST',
+                headers: headers
+            });
+            if (!response.ok) {
+                const errData = await response.json().catch(()=>({}));
+                throw new Error(errData.detail || 'Failed to refresh job');
+            }
             const updatedJob = await response.json();
             const index = currentJobs.findIndex(j => j.id === activeJobId);
             if (index !== -1) {
@@ -63,6 +73,17 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Setup Drag and Drop
     setupDragAndDrop();
+    
+    // Admin Shortcut
+    document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'a') {
+            const token = prompt("Enter Admin Secret Token to bypass rate limits:");
+            if (token !== null) {
+                localStorage.setItem('adminToken', token);
+                showToast('Admin token saved to browser.', 'success');
+            }
+        }
+    });
 });
 
 // --- Tabs ---
@@ -399,7 +420,7 @@ async function fetchAnalytics() {
 
 function renderJobsList() {
     // Clear all kanban columns
-    const statuses = ['Saved', 'Applied', 'Interviewing', 'Closed'];
+    const statuses = ['Saved', 'Applied', 'Interviewing', 'Selected', 'Rejected'];
     statuses.forEach(s => {
         const col = document.querySelector(`.kanban-dropzone[data-status="${s}"]`);
         if(col) col.innerHTML = '';

@@ -1,6 +1,6 @@
 import os
 import json
-from fastapi import FastAPI, UploadFile, File, Depends, HTTPException
+from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
@@ -11,6 +11,10 @@ from db import models, database
 from services import parser, skills, llm, scraper
 
 app = FastAPI()
+
+# Simple in-memory rate limiter for Gemini
+IP_REFRESH_COUNTS = {}
+ADMIN_SECRET = os.getenv("ADMIN_SECRET", "superadmin")
 
 app.add_middleware(
     CORSMiddleware,
@@ -296,7 +300,16 @@ def get_resume_analytics(resume_id: int, db: Session = Depends(database.get_db))
     }
 
 @app.post("/job_targets/{jt_id}/refresh", response_model=JobTargetResponse)
-async def refresh_job_target(jt_id: int, db: Session = Depends(database.get_db)):
+async def refresh_job_target(jt_id: int, request: Request, db: Session = Depends(database.get_db)):
+    # Rate Limiting Logic
+    admin_token = request.headers.get("X-Admin-Token")
+    if admin_token != ADMIN_SECRET:
+        client_ip = request.client.host if request.client else "unknown"
+        current_count = IP_REFRESH_COUNTS.get(client_ip, 0)
+        if current_count >= 2:
+            raise HTTPException(status_code=429, detail="You have reached the free limit of 2 refreshes. Please provide the admin token.")
+        IP_REFRESH_COUNTS[client_ip] = current_count + 1
+
     jt = db.query(models.JobTarget).filter(models.JobTarget.id == jt_id).first()
     if not jt:
         raise HTTPException(status_code=404, detail="Job Target not found")
