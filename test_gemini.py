@@ -1,9 +1,11 @@
 import os
+
 from dotenv import load_dotenv
 from google import genai
 from pydantic import BaseModel
 
 load_dotenv()
+
 
 class ExtractedInfo(BaseModel):
     summary: str
@@ -11,15 +13,16 @@ class ExtractedInfo(BaseModel):
     education: str
     past_titles: list[str]
 
+
 try:
     client = genai.Client()
     prompt = "Resume:\n"
     response = client.models.generate_content(
-        model='gemini-2.5-flash',
+        model="gemini-2.5-flash",
         contents=prompt,
         config={
-            'response_mime_type': 'application/json',
-            'response_schema': ExtractedInfo,
+            "response_mime_type": "application/json",
+            "response_schema": ExtractedInfo,
         },
     )
     print("SUCCESS")

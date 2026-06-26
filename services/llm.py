@@ -1,9 +1,11 @@
-import json
 import datetime
+import json
+
 from google import genai
 from pydantic import BaseModel
 
 client = genai.Client()
+
 
 class ExtractedInfo(BaseModel):
     summary: str
@@ -15,19 +17,23 @@ class ExtractedInfo(BaseModel):
     weaknesses: list[str]
     room_for_improvements: list[str]
 
+
 class TailoredResume(BaseModel):
     summary: str
     bullets: list[str]
 
+
 class InterviewPrep(BaseModel):
     questions: list[str]
+
 
 class CompanyInsights(BaseModel):
     insights: list[str]
 
+
 def extract_advanced_info(resume_text: str) -> dict:
     current_date = datetime.date.today().strftime("%B %Y")
-    
+
     prompt = f"""
     Analyze the following resume text and extract the following information:
     1. A short, professional 2-3 sentence executive summary of the candidate.
@@ -42,14 +48,14 @@ def extract_advanced_info(resume_text: str) -> dict:
     Resume Text:
     {resume_text}
     """
-    
+
     try:
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model="gemini-2.5-flash",
             contents=prompt,
             config={
-                'response_mime_type': 'application/json',
-                'response_schema': ExtractedInfo,
+                "response_mime_type": "application/json",
+                "response_schema": ExtractedInfo,
             },
         )
         if response.parsed:
@@ -66,8 +72,9 @@ def extract_advanced_info(resume_text: str) -> dict:
             "ats_score": 0,
             "strengths": [],
             "weaknesses": [],
-            "room_for_improvements": []
+            "room_for_improvements": [],
         }
+
 
 def tailor_resume(resume_text: str, jd_text: str) -> dict:
     prompt = f"""
@@ -87,11 +94,11 @@ def tailor_resume(resume_text: str, jd_text: str) -> dict:
     """
     try:
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model="gemini-2.5-flash",
             contents=prompt,
             config={
-                'response_mime_type': 'application/json',
-                'response_schema': TailoredResume,
+                "response_mime_type": "application/json",
+                "response_schema": TailoredResume,
             },
         )
         if response.parsed:
@@ -101,6 +108,7 @@ def tailor_resume(resume_text: str, jd_text: str) -> dict:
     except Exception as e:
         print(f"LLM Tailoring failed: {e}")
         return {"summary": "", "bullets": []}
+
 
 def generate_cover_letter(resume_text: str, jd_text: str) -> str:
     prompt = f"""
@@ -115,13 +123,13 @@ def generate_cover_letter(resume_text: str, jd_text: str) -> str:
     """
     try:
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt
+            model="gemini-2.5-flash", contents=prompt
         )
         return response.text
     except Exception as e:
         print(f"LLM Cover Letter failed: {e}")
         return ""
+
 
 def generate_interview_prep(resume_text: str, jd_text: str) -> list[str]:
     prompt = f"""
@@ -137,11 +145,11 @@ def generate_interview_prep(resume_text: str, jd_text: str) -> list[str]:
     """
     try:
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model="gemini-2.5-flash",
             contents=prompt,
             config={
-                'response_mime_type': 'application/json',
-                'response_schema': InterviewPrep,
+                "response_mime_type": "application/json",
+                "response_schema": InterviewPrep,
             },
         )
         if response.parsed:
@@ -151,6 +159,7 @@ def generate_interview_prep(resume_text: str, jd_text: str) -> list[str]:
     except Exception as e:
         print(f"LLM Interview Prep failed: {e}")
         return []
+
 
 def generate_resume_roast(resume_text: str) -> str:
     prompt = f"""
@@ -164,13 +173,13 @@ def generate_resume_roast(resume_text: str) -> str:
     """
     try:
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt
+            model="gemini-2.5-flash", contents=prompt
         )
         return response.text
     except Exception as e:
         print(f"LLM Roast failed: {e}")
         return ""
+
 
 class JDAnalysis(BaseModel):
     company_name: str | None
@@ -179,6 +188,7 @@ class JDAnalysis(BaseModel):
     missing_skills: list[str]
     jd_positives: list[str]
     jd_negatives: list[str]
+
 
 def analyze_job_fit(resume_text: str, jd_text: str, company_text: str) -> dict:
     jd_prompt = f"""
@@ -197,7 +207,7 @@ def analyze_job_fit(resume_text: str, jd_text: str, company_text: str) -> dict:
     5. 'jd_positives': A list of 2-3 green flags about the job description (e.g., clear requirements, salary posted, realistic expectations).
     6. 'jd_negatives': A list of 2-3 red flags about the job description (e.g., "fast-paced" implying chaotic, vague responsibilities, "unicorn" requirements).
     """
-    
+
     company_prompt = f"""
     You are a career researcher. Identify the company from this job description:
     {jd_text}
@@ -211,7 +221,7 @@ def analyze_job_fit(resume_text: str, jd_text: str, company_text: str) -> dict:
     - Overall work culture and stability
     If no information exists, state that.
     """
-    
+
     result = {
         "company_name": None,
         "fit_score": 0,
@@ -219,44 +229,48 @@ def analyze_job_fit(resume_text: str, jd_text: str, company_text: str) -> dict:
         "missing_skills": [],
         "jd_positives": ["Analysis failed."],
         "jd_negatives": ["Analysis failed."],
-        "company_stability_insights": ["Analysis failed."]
+        "company_stability_insights": ["Analysis failed."],
     }
-    
+
     try:
         jd_response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model="gemini-2.5-flash",
             contents=jd_prompt,
             config={
-                'response_mime_type': 'application/json',
-                'response_schema': JDAnalysis,
+                "response_mime_type": "application/json",
+                "response_schema": JDAnalysis,
             },
         )
         if jd_response.parsed:
             result.update(jd_response.parsed.model_dump())
         else:
             result.update(json.loads(jd_response.text))
-            
+
     except Exception as e:
         print(f"LLM JD Analysis failed: {e}")
         raise ValueError(f"LLM Analysis failed: {str(e)}")
 
     try:
         company_response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model="gemini-2.5-flash",
             contents=company_prompt,
             config={
-                'tools': [{'google_search': {}}],
-                'response_mime_type': 'application/json',
-                'response_schema': CompanyInsights,
+                "tools": [{"google_search": {}}],
+                "response_mime_type": "application/json",
+                "response_schema": CompanyInsights,
             },
         )
         if company_response.parsed:
-            result["company_stability_insights"] = company_response.parsed.model_dump().get("insights", [])
+            result["company_stability_insights"] = (
+                company_response.parsed.model_dump().get("insights", [])
+            )
         else:
-            result["company_stability_insights"] = json.loads(company_response.text).get("insights", [])
-            
+            result["company_stability_insights"] = json.loads(
+                company_response.text
+            ).get("insights", [])
+
     except Exception as e:
         print(f"LLM Company Analysis failed: {e}")
         result["company_stability_insights"] = ["Could not fetch company insights."]
-        
+
     return result
