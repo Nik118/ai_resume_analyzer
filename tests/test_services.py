@@ -1,5 +1,3 @@
-import pytest
-
 from services import ranker, skills
 
 

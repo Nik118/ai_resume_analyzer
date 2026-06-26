@@ -38,6 +38,11 @@ def serve_frontend():
     return FileResponse("static/index.html")
 
 
+@app.get("/health")
+def health_check():
+    return {"status": "ok", "service": "ai_resume_analyzer"}
+
+
 # --- Schemas ---
 class ResumeVersionResponse(BaseModel):
     id: int

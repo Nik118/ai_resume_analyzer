@@ -1,18 +1,22 @@
 # AI Resume Analyzer
 
-An AI-powered application to screen, parse, and rank resumes against job descriptions.
+An AI-powered application to screen, parse, rank, and tailor resumes against job descriptions using Google's Gemini LLM.
 
 ## Features
 
 - **Resume Parsing**: Automatically extract text from `.pdf` and `.docx` resume files.
-- **Skill & Information Extraction**: Uses NLP (`spacy`) to extract contact information (email, phone) and technical skills from unstructured resume text.
-- **Candidate Ranking**: Uses sentence embeddings (`sentence-transformers`) to semantically match extracted candidate profiles against a target job description, generating a ranked list of the best matches.
-- **RESTful API**: Built with FastAPI for high performance, featuring auto-generated interactive documentation.
+- **LLM-Powered Analysis**: Uses Google Gemini to extract contact information, technical skills, strengths, weaknesses, and ATS scores from unstructured resume text.
+- **Job Matching & Ranking**: Analyzes a candidate's resume against a Job Description (JD) to calculate a "Fit Score", highlighting aligned skills and missing skills.
+- **Tailoring & Generation**: Automatically tailors resume bullet points, generates cover letters, and creates custom interview prep questions based on the specific job target.
+- **Brutal Roasts**: A fun feature to get a brutal, humorous roast of a resume from the AI.
+- **RESTful API & Kanban UI**: Built with FastAPI for high performance, featuring an integrated Kanban-board frontend for tracking job applications.
 
 ## How to Run
 
 ### Prerequisites
 - Python 3.10+
+- PostgreSQL database
+- Google Gemini API Key (`GEMINI_API_KEY`)
 
 ### Setup Instructions
 
@@ -35,22 +39,43 @@ An AI-powered application to screen, parse, and rank resumes against job descrip
    pip install -r requirements.txt
    ```
 
-4. **Download the required Spacy language model**:
-   ```bash
-   python -m spacy download en_core_web_sm
+4. **Environment Variables**:
+   Create a `.env` file in the root directory:
+   ```env
+   DATABASE_URL=postgresql://user:password@localhost/ai_resume_analyzer
+   GEMINI_API_KEY=your_gemini_api_key_here
+   ADMIN_SECRET=superadmin
    ```
 
-5. **Run the FastAPI server**:
+5. **Database Migrations**:
    ```bash
-   uvicorn main:app --reload
+   alembic upgrade head
    ```
 
-### Usage
+6. **Run the FastAPI server**:
+   ```bash
+   uvicorn main:app --reload --port 8000
+   ```
 
-Once the server is running, you can access the interactive API documentation at:
-http://127.0.0.1:8000/docs
+### API Endpoints
 
-Here, you can:
-- Use the `POST /upload/` endpoint to upload candidate resumes (`.pdf` or `.docx`).
-- Use the `GET /candidates/` endpoint to view the parsed data.
-- Use the `POST /rank/` endpoint to supply a job description and receive a ranked list of candidates based on semantic matching.
+Once the server is running, access the interactive API documentation at `http://127.0.0.1:8000/docs`.
+
+**Core Endpoints:**
+- `GET /`: Serves the Kanban frontend UI.
+- `GET /health`: Uptime monitoring endpoint.
+- `POST /resumes/`: Upload and parse a new candidate resume (`.pdf` or `.docx`).
+- `GET /resumes/`: List all uploaded resumes.
+- `DELETE /resumes/{id}`: Delete a resume and cascade-delete its job targets.
+- `GET /resumes/{id}/analytics`: Get a summary of missing skills across all applied jobs.
+- `POST /resumes/{id}/roast`: Generate a brutal AI roast of the resume.
+
+**Job Target Endpoints:**
+- `POST /resumes/{id}/jobs`: Analyze a resume against a new Job Description.
+- `GET /resumes/{id}/jobs`: Get all job targets for a specific resume.
+- `PATCH /job_targets/{id}/status`: Update the Kanban status of a job application.
+- `POST /job_targets/{id}/refresh`: Re-run the LLM analysis for a job target.
+- `POST /job_targets/{id}/tailor`: Auto-tailor resume bullet points for this specific job.
+- `POST /job_targets/{id}/cover_letter`: Generate a custom cover letter.
+- `POST /job_targets/{id}/interview_prep`: Generate probable interview questions.
+- `DELETE /job_targets/{id}`: Delete a job target.
