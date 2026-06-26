@@ -15,9 +15,12 @@
     <div class="app-container">
         <!-- Sidebar -->
         <aside class="sidebar glass-panel">
-            <div class="brand">
-                <i class="fa-solid fa-rocket gradient-text"></i>
-                <h2>AI Optimizer</h2>
+            <div class="brand flex-between">
+                <div>
+                    <i class="fa-solid fa-rocket gradient-text"></i>
+                    <h2 style="display:inline; margin-left: 8px;">AI Optimizer</h2>
+                </div>
+                <button class="icon-btn" id="btn-admin-login" title="Admin Login" style="opacity: 0.5; font-size: 0.9rem;"><i class="fa-solid fa-lock"></i></button>
             </div>
             
             <div class="upload-section">
@@ -114,13 +117,15 @@
                                 <div class="kanban-col-header">Interviewing</div>
                                 <div class="kanban-dropzone" data-status="Interviewing" id="kb-interviewing"></div>
                             </div>
-                            <div class="kanban-col">
-                                <div class="kanban-col-header" style="color: var(--success);">Selected</div>
-                                <div class="kanban-dropzone" data-status="Selected" id="kb-selected"></div>
-                            </div>
-                            <div class="kanban-col">
-                                <div class="kanban-col-header" style="color: var(--danger);">Rejected</div>
-                                <div class="kanban-dropzone" data-status="Rejected" id="kb-rejected"></div>
+                            <div class="kanban-col" style="flex-direction: column; gap: 0;">
+                                <div style="flex: 1; display: flex; flex-direction: column;">
+                                    <div class="kanban-col-header" style="color: var(--success); border-bottom: 1px solid var(--border-color);">Selected</div>
+                                    <div class="kanban-dropzone" data-status="Selected" id="kb-selected" style="min-height: 150px;"></div>
+                                </div>
+                                <div style="flex: 1; display: flex; flex-direction: column; border-top: 1px solid var(--border-color); background: rgba(255,0,0,0.02);">
+                                    <div class="kanban-col-header" style="color: var(--danger); border-bottom: 1px solid var(--border-color);">Rejected</div>
+                                    <div class="kanban-dropzone" data-status="Rejected" id="kb-rejected" style="min-height: 150px;"></div>
+                                </div>
                             </div>
                         </div>
                     </div>

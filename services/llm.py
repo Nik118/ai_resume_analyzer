@@ -210,9 +210,6 @@ def analyze_job_fit(resume_text: str, jd_text: str, company_text: str) -> dict:
     - Salary competitiveness and growth opportunities
     - Overall work culture and stability
     If no information exists, state that.
-    
-    IMPORTANT: You MUST return exactly a valid JSON array of strings, and nothing else (no markdown block, no extra text).
-    Example: ["Bullet 1", "Bullet 2"]
     """
     
     result = {
@@ -241,22 +238,26 @@ def analyze_job_fit(resume_text: str, jd_text: str, company_text: str) -> dict:
             
     except Exception as e:
         print(f"LLM JD Analysis failed: {e}")
+        raise ValueError(f"LLM Analysis failed: {str(e)}")
         
+    class CompanyInsights(BaseModel):
+        insights: list[str]
+
     try:
         company_response = client.models.generate_content(
             model='gemini-2.5-flash',
             contents=company_prompt,
             config={
-                'tools': [{'google_search': {}}]
+                'tools': [{'google_search': {}}],
+                'response_mime_type': 'application/json',
+                'response_schema': CompanyInsights,
             },
         )
-        text = company_response.text.strip()
-        if text.startswith("```json"):
-            text = text[7:-3].strip()
-        elif text.startswith("```"):
-            text = text[3:-3].strip()
+        if company_response.parsed:
+            result["company_stability_insights"] = company_response.parsed.model_dump().get("insights", [])
+        else:
+            result["company_stability_insights"] = json.loads(company_response.text).get("insights", [])
             
-        result["company_stability_insights"] = json.loads(text)
     except Exception as e:
         print(f"LLM Company Analysis failed: {e}")
         result["company_stability_insights"] = ["Could not fetch company insights."]

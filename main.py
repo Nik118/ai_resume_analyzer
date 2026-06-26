@@ -14,7 +14,7 @@ app = FastAPI()
 
 # Simple in-memory rate limiter for Gemini
 IP_REFRESH_COUNTS = {}
-ADMIN_SECRET = os.getenv("ADMIN_SECRET", "superadmin")
+ADMIN_SECRET = os.getenv("ADMIN_SECRET")
 
 app.add_middleware(
     CORSMiddleware,
@@ -228,7 +228,10 @@ async def analyze_job(resume_id: int, payload: JDAnalyzePayload, db: Session = D
         company_text = await scraper.scrape_company_url(payload.company_url)
         
     # Analyze fit
-    fit_data = llm.analyze_job_fit(resume.extracted_text, payload.job_description, company_text)
+    try:
+        fit_data = llm.analyze_job_fit(resume.extracted_text, payload.job_description, company_text)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
     
     jt = models.JobTarget(
         resume_id=resume.id,
@@ -322,7 +325,10 @@ async def refresh_job_target(jt_id: int, request: Request, db: Session = Depends
         company_text = await scraper.scrape_company_url(jt.company_url)
         
     # Analyze fit
-    fit_data = llm.analyze_job_fit(resume.extracted_text, jt.job_description, company_text)
+    try:
+        fit_data = llm.analyze_job_fit(resume.extracted_text, jt.job_description, company_text)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
     
     jt.company_name = fit_data.get("company_name", jt.company_name) or jt.company_name
     jt.fit_score = fit_data.get("fit_score", 0)

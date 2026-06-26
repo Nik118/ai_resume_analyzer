@@ -3,10 +3,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 # Use DATABASE_URL env var if available (for Heroku/Render), fallback to local postgres
-SQLALCHEMY_DATABASE_URL = os.getenv(
-    "DATABASE_URL", 
-    "postgresql://postgres:password@localhost:5432/resume_analyzer"
-)
+SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
 
 # Cloud providers sometimes inject "postgres://" instead of "postgresql://"
 if SQLALCHEMY_DATABASE_URL.startswith("postgres://"):

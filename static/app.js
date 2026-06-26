@@ -75,15 +75,30 @@ document.addEventListener('DOMContentLoaded', () => {
     setupDragAndDrop();
     
     // Admin Shortcut
+    const btnAdmin = document.getElementById('btn-admin-login');
+    const updateAdminButton = () => {
+        if (localStorage.getItem('adminToken')) {
+            if(btnAdmin) btnAdmin.style.display = 'none';
+        }
+    };
+    updateAdminButton();
+
+    const handleAdminPrompt = () => {
+        const token = prompt("Enter Admin Secret Token to bypass rate limits:");
+        if (token !== null) {
+            localStorage.setItem('adminToken', token);
+            showToast('Admin token saved to browser.', 'success');
+            updateAdminButton();
+        }
+    };
+    
     document.addEventListener('keydown', (e) => {
         if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'a') {
-            const token = prompt("Enter Admin Secret Token to bypass rate limits:");
-            if (token !== null) {
-                localStorage.setItem('adminToken', token);
-                showToast('Admin token saved to browser.', 'success');
-            }
+            handleAdminPrompt();
         }
     });
+    
+    document.getElementById('btn-admin-login').addEventListener('click', handleAdminPrompt);
 });
 
 // --- Tabs ---
