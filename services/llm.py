@@ -2,9 +2,6 @@ import json
 import datetime
 from google import genai
 from pydantic import BaseModel
-from dotenv import load_dotenv
-
-load_dotenv()
 
 client = genai.Client()
 
@@ -24,6 +21,9 @@ class TailoredResume(BaseModel):
 
 class InterviewPrep(BaseModel):
     questions: list[str]
+
+class CompanyInsights(BaseModel):
+    insights: list[str]
 
 def extract_advanced_info(resume_text: str) -> dict:
     current_date = datetime.date.today().strftime("%B %Y")
@@ -239,9 +239,6 @@ def analyze_job_fit(resume_text: str, jd_text: str, company_text: str) -> dict:
     except Exception as e:
         print(f"LLM JD Analysis failed: {e}")
         raise ValueError(f"LLM Analysis failed: {str(e)}")
-        
-    class CompanyInsights(BaseModel):
-        insights: list[str]
 
     try:
         company_response = client.models.generate_content(

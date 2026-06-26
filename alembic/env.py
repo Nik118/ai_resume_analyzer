@@ -17,6 +17,8 @@ if config.config_file_name is not None:
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from dotenv import load_dotenv
+load_dotenv()
 from db.models import Base
 from db.database import SQLALCHEMY_DATABASE_URL
 

@@ -30,7 +30,6 @@ class JobTarget(Base):
     fit_score = Column(Integer, nullable=True)
     aligned_skills = Column(Text, nullable=True) # JSON string
     missing_skills = Column(Text, nullable=True) # JSON string
-    job_quality_summary = Column(Text, nullable=True) # DEPRECATED
     jd_positives = Column(Text, nullable=True) # JSON string
     jd_negatives = Column(Text, nullable=True) # JSON string
     company_stability_summary = Column(Text, nullable=True)

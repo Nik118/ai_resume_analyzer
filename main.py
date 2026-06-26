@@ -1,5 +1,7 @@
 import os
 import json
+from dotenv import load_dotenv
+load_dotenv()
 from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -14,7 +16,7 @@ app = FastAPI()
 
 # Simple in-memory rate limiter for Gemini
 IP_REFRESH_COUNTS = {}
-ADMIN_SECRET = os.getenv("ADMIN_SECRET")
+ADMIN_SECRET = os.getenv("ADMIN_SECRET", "superadmin")
 
 app.add_middleware(
     CORSMiddleware,
@@ -74,56 +76,36 @@ class JDAnalyzePayload(BaseModel):
     job_description: str
     company_url: str | None = None
 
+def _safe_json_loads(value, default=None):
+    """Safely parse a JSON string, returning default on failure."""
+    if default is None:
+        default = []
+    if not value:
+        return default
+    try:
+        parsed = json.loads(value)
+        return parsed if isinstance(parsed, list) else [str(parsed)]
+    except (json.JSONDecodeError, TypeError):
+        return [value] if value else default
+
 def _format_resume(c: models.ResumeVersion) -> dict:
-    try: skills_list = json.loads(c.skills) if c.skills else []
-    except: skills_list = []
-    try: strengths_list = json.loads(c.strengths) if c.strengths else []
-    except: strengths_list = []
-    try: weaknesses_list = json.loads(c.weaknesses) if c.weaknesses else []
-    except: weaknesses_list = []
-    try: past_titles = json.loads(c.past_titles) if c.past_titles else []
-    except: past_titles = []
-    try: 
-        parsed = json.loads(c.general_feedback) if c.general_feedback else []
-        if isinstance(parsed, list):
-            improvements_list = parsed
-        else:
-            improvements_list = [str(parsed)]
-    except: 
-        improvements_list = [c.general_feedback] if c.general_feedback else []
-    
     return {
         "id": c.id,
         "filename": c.filename,
         "email": c.email,
         "phone": c.phone,
-        "skills": skills_list,
+        "skills": _safe_json_loads(c.skills),
         "summary": c.summary,
         "experience_years": c.experience_years,
         "education": c.education,
-        "past_titles": past_titles,
+        "past_titles": _safe_json_loads(c.past_titles),
         "ats_score": c.ats_score,
-        "strengths": strengths_list,
-        "weaknesses": weaknesses_list,
-        "room_for_improvements": improvements_list
+        "strengths": _safe_json_loads(c.strengths),
+        "weaknesses": _safe_json_loads(c.weaknesses),
+        "room_for_improvements": _safe_json_loads(c.general_feedback)
     }
 
 def _format_job_target(jt: models.JobTarget) -> dict:
-    try: aligned = json.loads(jt.aligned_skills) if jt.aligned_skills else []
-    except: aligned = []
-    try: missing = json.loads(jt.missing_skills) if jt.missing_skills else []
-    except: missing = []
-    try: bullets = json.loads(jt.tailored_bullets) if jt.tailored_bullets else []
-    except: bullets = []
-    try: prep = json.loads(jt.interview_prep) if jt.interview_prep else []
-    except: prep = []
-    try: pos = json.loads(jt.jd_positives) if jt.jd_positives else []
-    except: pos = []
-    try: neg = json.loads(jt.jd_negatives) if jt.jd_negatives else []
-    except: neg = []
-    try: cs = json.loads(jt.company_stability_summary) if jt.company_stability_summary else []
-    except: cs = [jt.company_stability_summary] if jt.company_stability_summary else []
-
     return {
         "id": jt.id,
         "resume_id": jt.resume_id,
@@ -131,15 +113,15 @@ def _format_job_target(jt: models.JobTarget) -> dict:
         "company_url": jt.company_url,
         "company_name": jt.company_name,
         "fit_score": jt.fit_score,
-        "aligned_skills": aligned,
-        "missing_skills": missing,
-        "jd_positives": pos,
-        "jd_negatives": neg,
-        "company_stability_insights": cs,
+        "aligned_skills": _safe_json_loads(jt.aligned_skills),
+        "missing_skills": _safe_json_loads(jt.missing_skills),
+        "jd_positives": _safe_json_loads(jt.jd_positives),
+        "jd_negatives": _safe_json_loads(jt.jd_negatives),
+        "company_stability_insights": _safe_json_loads(jt.company_stability_summary),
         "tailored_summary": jt.tailored_summary,
-        "tailored_bullets": bullets,
+        "tailored_bullets": _safe_json_loads(jt.tailored_bullets),
         "cover_letter": jt.cover_letter,
-        "interview_prep": prep,
+        "interview_prep": _safe_json_loads(jt.interview_prep),
         "status": jt.status
     }
 
@@ -194,6 +176,8 @@ def delete_resume(resume_id: int, db: Session = Depends(database.get_db)):
     resume = db.query(models.ResumeVersion).filter(models.ResumeVersion.id == resume_id).first()
     if not resume:
         raise HTTPException(status_code=404, detail="Resume not found")
+    # Cascade delete all associated job targets
+    db.query(models.JobTarget).filter(models.JobTarget.resume_id == resume_id).delete()
     db.delete(resume)
     db.commit()
     return {"status": "deleted"}
@@ -303,12 +287,16 @@ def get_resume_analytics(resume_id: int, db: Session = Depends(database.get_db))
     
     return {
         "average_fit": avg_fit,
-        "missing_skills_freq": sorted_skills[:10] # Top 10
+        "missing_skills_freq": sorted_skills
     }
 
 @app.post("/job_targets/{jt_id}/refresh", response_model=JobTargetResponse)
 async def refresh_job_target(jt_id: int, request: Request, db: Session = Depends(database.get_db)):
-    # Rate Limiting Logic
+    jt = db.query(models.JobTarget).filter(models.JobTarget.id == jt_id).first()
+    if not jt:
+        raise HTTPException(status_code=404, detail="Job Target not found")
+
+    # Rate Limiting Logic (after validating job exists)
     admin_token = request.headers.get("X-Admin-Token")
     if admin_token != ADMIN_SECRET:
         client_ip = request.client.host if request.client else "unknown"
@@ -316,10 +304,6 @@ async def refresh_job_target(jt_id: int, request: Request, db: Session = Depends
         if current_count >= 2:
             raise HTTPException(status_code=429, detail="You have reached the free limit of 2 refreshes. Please provide the admin token.")
         IP_REFRESH_COUNTS[client_ip] = current_count + 1
-
-    jt = db.query(models.JobTarget).filter(models.JobTarget.id == jt_id).first()
-    if not jt:
-        raise HTTPException(status_code=404, detail="Job Target not found")
         
     resume = db.query(models.ResumeVersion).filter(models.ResumeVersion.id == jt.resume_id).first()
     
