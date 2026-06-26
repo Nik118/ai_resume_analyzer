@@ -281,6 +281,7 @@ def get_resume_analytics(resume_id: int, db: Session = Depends(database.get_db))
         
     total_fit = 0
     missing_freq = {}
+    original_casing = {}
     
     for jt in jobs:
         total_fit += (jt.fit_score or 0)
@@ -288,14 +289,17 @@ def get_resume_analytics(resume_id: int, db: Session = Depends(database.get_db))
             missing = json.loads(jt.missing_skills) if jt.missing_skills else []
             for skill in missing:
                 skill_clean = skill.strip().lower()
+                if skill_clean not in missing_freq:
+                    original_casing[skill_clean] = skill.strip()
                 missing_freq[skill_clean] = missing_freq.get(skill_clean, 0) + 1
         except:
             pass
             
     avg_fit = total_fit // len(jobs)
     
-    # Sort by frequency descending
-    sorted_skills = [{"skill": k.title(), "count": v} for k, v in sorted(missing_freq.items(), key=lambda item: item[1], reverse=True)]
+    # Sort by frequency descending and limit to top 5
+    sorted_items = sorted(missing_freq.items(), key=lambda item: item[1], reverse=True)[:5]
+    sorted_skills = [{"skill": original_casing[k], "count": v} for k, v in sorted_items]
     
     return {
         "average_fit": avg_fit,
