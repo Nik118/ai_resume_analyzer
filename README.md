@@ -1,12 +1,12 @@
 # AI Resume Analyzer
 
-An AI-powered application to screen, parse, rank, and tailor resumes against job descriptions using Google's Gemini LLM.
+An AI-powered application to screen, parse, and tailor resumes against job descriptions using Google's Gemini LLM.
 
 ## Features
 
 - **Resume Parsing**: Automatically extract text from `.pdf` and `.docx` resume files.
 - **LLM-Powered Analysis**: Uses Google Gemini to extract contact information, technical skills, strengths, weaknesses, and ATS scores from unstructured resume text.
-- **Job Matching & Ranking**: Analyzes a candidate's resume against a Job Description (JD) to calculate a "Fit Score", highlighting aligned skills and missing skills.
+- **Job Matching**: Analyzes a candidate's resume against a Job Description (JD) to calculate a "Fit Score", highlighting aligned skills and missing skills.
 - **Tailoring & Generation**: Automatically tailors resume bullet points, generates cover letters, and creates custom interview prep questions based on the specific job target.
 - **Brutal Roasts**: A fun feature to get a brutal, humorous roast of a resume from the AI.
 - **RESTful API & Kanban UI**: Built with FastAPI for high performance, featuring an integrated Kanban-board frontend for tracking job applications.
