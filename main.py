@@ -65,6 +65,7 @@ class ResumeVersionResponse(BaseModel):
 class JobTargetResponse(BaseModel):
     id: int
     resume_id: int
+    resume_filename: str | None = None
     job_description: str
     company_url: str | None
     company_name: str | None
@@ -231,6 +232,22 @@ def roast_resume(resume_id: int, db: Session = Depends(database.get_db)):
 
 
 # --- Job Target Endpoints ---
+
+
+@app.get("/job_targets/", response_model=list[JobTargetResponse])
+def get_all_job_targets(db: Session = Depends(database.get_db)):
+    jobs = (
+        db.query(models.JobTarget, models.ResumeVersion.filename)
+        .join(models.ResumeVersion, models.JobTarget.resume_id == models.ResumeVersion.id)
+        .order_by(models.JobTarget.fit_score.desc())
+        .all()
+    )
+    result = []
+    for jt, filename in jobs:
+        formatted = _format_job_target(jt)
+        formatted["resume_filename"] = filename
+        result.append(formatted)
+    return result
 
 
 @app.get("/resumes/{resume_id}/jobs", response_model=list[JobTargetResponse])

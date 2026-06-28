@@ -4,31 +4,31 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Resume Analyzer</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-    <div class="bg-orb orb-1"></div>
-    <div class="bg-orb orb-2"></div>
     
-    <div class="app-container">
+    <div class="app-layout">
         <!-- Sidebar -->
-        <aside class="sidebar glass-panel">
-            <div class="brand flex-between">
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <i class="fa-solid fa-rocket gradient-text"></i>
-                    <h2 style="font-size: 1.3rem; margin: 0; white-space: nowrap; letter-spacing: -0.5px;">AI Resume Analyzer</h2>
-                </div>
-                <button class="icon-btn" id="btn-admin-login" title="Admin Login" style="opacity: 0.5; font-size: 0.9rem;"><i class="fa-solid fa-lock"></i></button>
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2><i class="fa-solid fa-file-signature" style="color: var(--accent-primary);"></i> Resume AI</h2>
             </div>
             
             <div class="upload-section">
                 <input type="file" id="resume-upload" accept=".pdf,.docx" hidden>
-                <button class="primary-btn full-width" onclick="document.getElementById('resume-upload').click()">
+                <button class="primary-btn w-100" onclick="document.getElementById('resume-upload').click()">
                     <i class="fa-solid fa-cloud-arrow-up"></i> Upload Resume
                 </button>
                 <div id="upload-status" class="status-message hidden"></div>
+            </div>
+
+            <div class="sidebar-nav mt-3 mb-2" style="padding: 0 1.5rem;">
+                <button class="primary-btn w-100" id="btn-global-jobs" style="background: var(--accent-primary); border-radius: 8px;"><i class="fa-solid fa-list-check"></i> All Job Applications</button>
             </div>
 
             <nav class="resume-list" id="resume-list">
@@ -38,14 +38,16 @@
 
         <!-- Main Content -->
         <main class="main-content">
+            <!-- Empty State -->
             <div id="empty-state" class="glass-panel main-panel active flex-center">
                 <div class="empty-message">
                     <i class="fa-solid fa-wand-magic-sparkles"></i>
                     <h2>Welcome to AI Resume Analyzer</h2>
-                    <p>Upload a resume on the left to get started.</p>
+                    <p>Upload a resume or view all job applications to get started.</p>
                 </div>
             </div>
 
+            <!-- Resume Dashboard -->
             <div id="resume-dashboard" class="glass-panel main-panel">
                 <div class="dashboard-header flex-between">
                     <div>
@@ -57,7 +59,6 @@
                 <!-- Tabs -->
                 <div class="tabs mt-4">
                     <button class="tab-btn active" id="tab-overview">Overview</button>
-                    <button class="tab-btn" id="tab-jobs">Job Kanban</button>
                     <button class="tab-btn" id="tab-analytics">Skill Analytics</button>
                 </div>
 
@@ -95,133 +96,6 @@
                     </div>
                 </div>
 
-                <!-- Tab: Job Kanban -->
-                <div id="view-jobs" class="tab-content">
-                    
-                    <!-- Kanban Board View -->
-                    <div id="kanban-board-view">
-                        <div class="flex-between mb-3">
-                            <h3>Job Application Pipeline</h3>
-                            <button class="primary-btn btn-sm" id="btn-new-job"><i class="fa-solid fa-plus"></i> Analyze New Job</button>
-                        </div>
-                        <div class="kanban-board">
-                            <div class="kanban-col">
-                                <div class="kanban-col-header">Saved</div>
-                                <div class="kanban-dropzone" data-status="Saved" id="kb-saved"></div>
-                            </div>
-                            <div class="kanban-col">
-                                <div class="kanban-col-header">Applied</div>
-                                <div class="kanban-dropzone" data-status="Applied" id="kb-applied"></div>
-                            </div>
-                            <div class="kanban-col">
-                                <div class="kanban-col-header">Interviewing</div>
-                                <div class="kanban-dropzone" data-status="Interviewing" id="kb-interviewing"></div>
-                            </div>
-                            <div class="kanban-col" style="flex-direction: column; gap: 0;">
-                                <div style="flex: 1; display: flex; flex-direction: column;">
-                                    <div class="kanban-col-header" style="color: var(--success); border-bottom: 1px solid var(--border-color);">Selected</div>
-                                    <div class="kanban-dropzone" data-status="Selected" id="kb-selected" style="min-height: 150px;"></div>
-                                </div>
-                                <div style="flex: 1; display: flex; flex-direction: column; border-top: 1px solid var(--border-color); background: rgba(255,0,0,0.02);">
-                                    <div class="kanban-col-header" style="color: var(--danger); border-bottom: 1px solid var(--border-color);">Rejected</div>
-                                    <div class="kanban-dropzone" data-status="Rejected" id="kb-rejected" style="min-height: 150px;"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Job Details / Add New -->
-                    <div id="job-detail-container" class="hidden">
-                            <!-- Add New Job -->
-                            <div id="add-job-view" class="hidden">
-                                <div class="flex-between mb-3">
-                                    <h3>Analyze New Job</h3>
-                                    <button class="icon-btn" id="btn-back-from-add"><i class="fa-solid fa-arrow-left"></i> Back</button>
-                                </div>
-                                <p class="subtitle mb-3">Paste a Job Description to get a Fit Score.</p>
-                                <input type="text" id="jd-url" class="glass-input mb-3" placeholder="Company Website URL (Optional for stability analysis)" style="min-height: 40px;">
-                                <textarea id="jd-input" class="glass-input" placeholder="Paste the exact Job Description here..."></textarea>
-                                <button class="primary-btn mt-3" id="btn-analyze-job"><i class="fa-solid fa-magnifying-glass-chart"></i> Analyze Fit</button>
-                            </div>
-
-                            <!-- View Saved Job -->
-                            <div id="saved-job-view" class="hidden">
-                                <div class="flex-between mb-3">
-                                    <div style="display:flex; align-items:center; gap: 1rem;">
-                                        <button class="icon-btn" id="btn-back-from-job"><i class="fa-solid fa-arrow-left"></i></button>
-                                        <h3 id="view-job-title" style="margin:0;">Job Fit Analysis</h3>
-                                    </div>
-                                    <div>
-                                        <button class="icon-btn" id="btn-refresh-job" title="Re-calculate Score"><i class="fa-solid fa-rotate-right"></i></button>
-                                        <button class="icon-btn danger-text" id="btn-delete-job" title="Delete Job"><i class="fa-solid fa-trash"></i></button>
-                                    </div>
-                                </div>
-                                
-                                <div class="fit-score-banner" id="view-fit-score">
-                                    Score: 85% Fit
-                                </div>
-
-                                <div class="dashboard-grid mt-3" style="gap: 1rem;">
-                                    <div class="sw-card p-3">
-                                        <h4 class="success-text"><i class="fa-solid fa-check"></i> Aligned Skills</h4>
-                                        <ul class="bullet-list" id="view-aligned"></ul>
-                                    </div>
-                                    <div class="sw-card p-3">
-                                        <h4 class="danger-text"><i class="fa-solid fa-xmark"></i> Missing Skills</h4>
-                                        <ul class="bullet-list" id="view-missing"></ul>
-                                    </div>
-                                </div>
-
-                                <div class="dashboard-grid mt-3" style="gap: 1rem;">
-                                    <div class="sw-card p-3">
-                                        <h4 class="success-text"><i class="fa-solid fa-thumbs-up"></i> JD Positives</h4>
-                                        <ul class="bullet-list" id="view-jd-pos"></ul>
-                                    </div>
-                                    <div class="sw-card p-3">
-                                        <h4 class="danger-text"><i class="fa-solid fa-flag"></i> JD Red Flags</h4>
-                                        <ul class="bullet-list" id="view-jd-neg"></ul>
-                                    </div>
-                                </div>
-
-                                <div class="analysis-box mt-3">
-                                    <h4><i class="fa-solid fa-building" style="color: var(--accent-secondary)"></i> Company Stability (Web Reviews)</h4>
-                                    <ul class="bullet-list" id="view-company-stability"></ul>
-                                </div>
-
-                                <hr class="divider">
-
-                                <div class="tailor-actions flex-between">
-                                    <h4>AI Tailoring Tools</h4>
-                                    <div>
-                                        <button class="primary-btn btn-sm" id="btn-tailor"><i class="fa-solid fa-wand-magic-sparkles"></i> Tailor Resume</button>
-                                        <button class="secondary-btn btn-sm" id="btn-cover-letter"><i class="fa-solid fa-envelope-open-text"></i> Cover</button>
-                                        <button class="secondary-btn btn-sm" id="btn-interview"><i class="fa-solid fa-clipboard-question"></i> Prep</button>
-                                    </div>
-                                </div>
-
-                                <div id="tailor-results" class="tailored-content mt-4 hidden">
-                                    <h3 class="success-text"><i class="fa-solid fa-wand-magic-sparkles"></i> Auto-Tailored Summary</h3>
-                                    <div class="skeleton-loader hidden" id="tailor-loader">
-                                        <div class="skeleton-line" style="width: 100%"></div>
-                                        <div class="skeleton-line" style="width: 90%"></div>
-                                        <div class="skeleton-line" style="width: 95%"></div>
-                                    </div>
-                                    <p id="view-tailored-summary" class="mt-2" style="white-space: pre-line;"></p>
-                                    
-                                    <h4 class="mt-3">Suggested Bullet Points</h4>
-                                    <ul class="bullet-list" id="view-tailored-bullets"></ul>
-
-                                    <h4 class="mt-3">Cover Letter Draft</h4>
-                                    <div class="glass-input mt-2" id="view-cover-letter" style="white-space: pre-wrap; font-size: 0.9rem;"></div>
-
-                                    <h4 class="mt-3">Interview Prep Q&A</h4>
-                                    <div id="view-interview-prep" class="mt-2 flex-col" style="gap: 1rem;"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
                 <!-- Tab: Skill Analytics -->
                 <div id="view-analytics" class="tab-content">
                     <div class="flex-between mb-3">
@@ -240,6 +114,137 @@
                     <h4 class="mb-3"><i class="fa-solid fa-chart-bar" style="color: var(--accent-primary)"></i> Most Requested Missing Skills</h4>
                     <div id="analytics-skills-list" class="flex-col" style="gap: 1rem;">
                         <!-- JS injected list of missing skills -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Global Jobs Dashboard -->
+            <div id="global-jobs-dashboard" class="glass-panel main-panel">
+                
+                <!-- Kanban Board View -->
+                <div id="kanban-board-view">
+                    <div class="flex-between mb-3">
+                        <h3>Global Job Pipeline</h3>
+                        <button class="primary-btn btn-sm" id="btn-new-job"><i class="fa-solid fa-plus"></i> Analyze New Job</button>
+                    </div>
+                    <div class="kanban-board">
+                        <div class="kanban-col">
+                            <div class="kanban-col-header">Saved</div>
+                            <div class="kanban-dropzone" data-status="Saved" id="kb-saved"></div>
+                        </div>
+                        <div class="kanban-col">
+                            <div class="kanban-col-header">Applied</div>
+                            <div class="kanban-dropzone" data-status="Applied" id="kb-applied"></div>
+                        </div>
+                        <div class="kanban-col">
+                            <div class="kanban-col-header">Interviewing</div>
+                            <div class="kanban-dropzone" data-status="Interviewing" id="kb-interviewing"></div>
+                        </div>
+                        <div class="kanban-col" style="flex-direction: column; gap: 0;">
+                            <div style="flex: 1; display: flex; flex-direction: column;">
+                                <div class="kanban-col-header" style="color: var(--success); border-bottom: 1px solid var(--border-color);">Selected</div>
+                                <div class="kanban-dropzone" data-status="Selected" id="kb-selected" style="min-height: 150px;"></div>
+                            </div>
+                            <div style="flex: 1; display: flex; flex-direction: column; border-top: 1px solid var(--border-color); background: rgba(255,0,0,0.02);">
+                                <div class="kanban-col-header" style="color: var(--danger); border-bottom: 1px solid var(--border-color);">Rejected</div>
+                                <div class="kanban-dropzone" data-status="Rejected" id="kb-rejected" style="min-height: 150px;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Job Details / Add New -->
+                <div id="job-detail-container" class="hidden">
+                    <!-- Add New Job -->
+                    <div id="add-job-view" class="hidden">
+                        <div class="flex-between mb-3">
+                            <h3>Analyze New Job</h3>
+                            <button class="icon-btn" id="btn-back-from-add"><i class="fa-solid fa-arrow-left"></i> Back</button>
+                        </div>
+                        <p class="subtitle mb-3">Select a base resume and paste a Job Description.</p>
+                        
+                        <select id="jd-resume-select" class="glass-input mb-3" style="min-height: 40px; cursor: pointer; display: block; width: 100%;">
+                            <option value="" disabled selected>-- Select a Base Resume --</option>
+                        </select>
+
+                        <input type="text" id="jd-url" class="glass-input mb-3" placeholder="Company Website URL (Optional for stability analysis)" style="min-height: 40px; display: block; width: 100%;">
+                        <textarea id="jd-input" class="glass-input" placeholder="Paste the exact Job Description here..." style="display: block; width: 100%; min-height: 150px;"></textarea>
+                        <button class="primary-btn mt-3" id="btn-analyze-job"><i class="fa-solid fa-magnifying-glass-chart"></i> Analyze Fit</button>
+                    </div>
+
+                    <!-- View Saved Job -->
+                    <div id="saved-job-view" class="hidden">
+                        <div class="flex-between mb-3">
+                            <div style="display:flex; align-items:center; gap: 1rem;">
+                                <button class="icon-btn" id="btn-back-from-job"><i class="fa-solid fa-arrow-left"></i></button>
+                                <h3 id="view-job-title" style="margin:0;">Job Fit Analysis</h3>
+                            </div>
+                            <div>
+                                <button class="icon-btn" id="btn-refresh-job" title="Re-calculate Score"><i class="fa-solid fa-rotate-right"></i></button>
+                                <button class="icon-btn danger-text" id="btn-delete-job" title="Delete Job"><i class="fa-solid fa-trash"></i></button>
+                            </div>
+                        </div>
+                        
+                        <div class="fit-score-banner" id="view-fit-score">
+                            Score: 85% Fit
+                        </div>
+
+                        <div class="dashboard-grid mt-3" style="gap: 1rem;">
+                            <div class="sw-card p-3">
+                                <h4 class="success-text"><i class="fa-solid fa-check"></i> Aligned Skills</h4>
+                                <ul class="bullet-list mt-2" id="view-aligned"></ul>
+                            </div>
+                            <div class="sw-card p-3">
+                                <h4 class="danger-text"><i class="fa-solid fa-xmark"></i> Missing Skills</h4>
+                                <ul class="bullet-list mt-2" id="view-missing"></ul>
+                            </div>
+                        </div>
+
+                        <div class="dashboard-grid mt-3" style="gap: 1rem;">
+                            <div class="sw-card p-3">
+                                <h4 class="success-text"><i class="fa-solid fa-thumbs-up"></i> JD Positives</h4>
+                                <ul class="bullet-list mt-2" id="view-jd-pos"></ul>
+                            </div>
+                            <div class="sw-card p-3">
+                                <h4 class="danger-text"><i class="fa-solid fa-flag"></i> JD Red Flags</h4>
+                                <ul class="bullet-list mt-2" id="view-jd-neg"></ul>
+                            </div>
+                        </div>
+
+                        <div class="analysis-box mt-3">
+                            <h4><i class="fa-solid fa-building" style="color: var(--accent-secondary)"></i> Company Stability (Web Reviews)</h4>
+                            <ul class="bullet-list mt-2" id="view-company-stability"></ul>
+                        </div>
+
+                        <hr class="divider mt-4 mb-4">
+
+                        <div class="tailor-actions flex-between">
+                            <h4>AI Tailoring Tools</h4>
+                            <div>
+                                <button class="primary-btn btn-sm" id="btn-tailor"><i class="fa-solid fa-wand-magic-sparkles"></i> Tailor Resume</button>
+                                <button class="secondary-btn btn-sm" id="btn-cover-letter"><i class="fa-solid fa-envelope-open-text"></i> Cover</button>
+                                <button class="secondary-btn btn-sm" id="btn-interview"><i class="fa-solid fa-clipboard-question"></i> Prep</button>
+                            </div>
+                        </div>
+
+                        <div id="tailor-results" class="tailored-content mt-4 hidden">
+                            <h3 class="success-text"><i class="fa-solid fa-wand-magic-sparkles"></i> Auto-Tailored Summary</h3>
+                            <div class="skeleton-loader hidden" id="tailor-loader">
+                                <div class="skeleton-line" style="width: 100%"></div>
+                                <div class="skeleton-line" style="width: 90%"></div>
+                                <div class="skeleton-line" style="width: 95%"></div>
+                            </div>
+                            <p id="view-tailored-summary" class="mt-2" style="white-space: pre-line;"></p>
+                            
+                            <h4 class="mt-3">Suggested Bullet Points</h4>
+                            <ul class="bullet-list mt-2" id="view-tailored-bullets"></ul>
+
+                            <h4 class="mt-3">Cover Letter Draft</h4>
+                            <div class="glass-input mt-2" id="view-cover-letter" style="white-space: pre-wrap; font-size: 0.9rem;"></div>
+
+                            <h4 class="mt-3">Interview Prep Q&A</h4>
+                            <div id="view-interview-prep" class="mt-2 flex-col" style="gap: 1rem;"></div>
+                        </div>
                     </div>
                 </div>
 

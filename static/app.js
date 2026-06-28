@@ -10,9 +10,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('resume-upload').addEventListener('change', handleUpload);
     document.getElementById('btn-roast').addEventListener('click', handleRoast);
 
+    document.getElementById('btn-global-jobs').addEventListener('click', () => switchTab('global-jobs'));
+
     // Tabs
     document.getElementById('tab-overview').addEventListener('click', () => switchTab('overview'));
-    document.getElementById('tab-jobs').addEventListener('click', () => switchTab('jobs'));
     document.getElementById('tab-analytics').addEventListener('click', () => switchTab('analytics'));
 
     // Job Tracker
@@ -106,14 +107,30 @@ function switchTab(tab) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
     
-    document.getElementById(`tab-${tab}`).classList.add('active');
-    document.getElementById(`view-${tab}`).classList.add('active');
+    document.getElementById('empty-state').classList.remove('active');
+    document.getElementById('resume-dashboard').classList.remove('active');
+    document.getElementById('global-jobs-dashboard').classList.remove('active');
 
-    if (tab === 'jobs' && selectedResumeId) {
+    if (tab === 'global-jobs') {
+        document.getElementById('global-jobs-dashboard').classList.add('active');
         document.getElementById('kanban-board-view').classList.remove('hidden');
         document.getElementById('job-detail-container').classList.add('hidden');
-        fetchJobs();
-    } else if (tab === 'analytics' && selectedResumeId) {
+        
+        document.querySelectorAll('.resume-item').forEach(el => el.classList.remove('active'));
+        selectedResumeId = null;
+        
+        fetchGlobalJobs();
+        return;
+    }
+    
+    document.getElementById('resume-dashboard').classList.add('active');
+    
+    const tBtn = document.getElementById(`tab-${tab}`);
+    if (tBtn) tBtn.classList.add('active');
+    const tView = document.getElementById(`view-${tab}`);
+    if (tView) tView.classList.add('active');
+
+    if (tab === 'analytics' && selectedResumeId) {
         fetchAnalytics();
     }
 }
@@ -179,10 +196,9 @@ async function deleteResume(id) {
 
 // --- API Calls (Jobs) ---
 
-async function fetchJobs() {
-    if (!selectedResumeId) return;
+async function fetchGlobalJobs() {
     try {
-        const response = await fetch(`${API_BASE}/resumes/${selectedResumeId}/jobs`);
+        const response = await fetch(`${API_BASE}/job_targets/`);
         if (!response.ok) throw new Error('Failed to fetch jobs');
         currentJobs = await response.json();
         renderJobsList();
@@ -192,7 +208,9 @@ async function fetchJobs() {
 }
 
 async function handleAnalyzeJob() {
-    if (!selectedResumeId) return;
+    const resumeSelectId = document.getElementById('jd-resume-select').value;
+    if (!resumeSelectId) { showToast('Please select a base resume first', 'error'); return; }
+
     const jd = document.getElementById('jd-input').value.trim();
     const url = document.getElementById('jd-url').value.trim();
     if (!jd) { showToast('Please paste a Job Description', 'error'); return; }
@@ -202,7 +220,7 @@ async function handleAnalyzeJob() {
     btn.disabled = true;
 
     try {
-        const response = await fetch(`${API_BASE}/resumes/${selectedResumeId}/jobs`, {
+        const response = await fetch(`${API_BASE}/resumes/${resumeSelectId}/jobs`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ job_description: jd, company_url: url || null })
@@ -218,6 +236,7 @@ async function handleAnalyzeJob() {
         
         document.getElementById('jd-input').value = '';
         document.getElementById('jd-url').value = '';
+        document.getElementById('jd-resume-select').value = '';
         selectJob(newJob.id);
         
     } catch (error) {
@@ -405,6 +424,12 @@ function showAddJobView() {
     document.getElementById('job-detail-container').classList.remove('hidden');
     document.getElementById('add-job-view').classList.remove('hidden');
     document.getElementById('saved-job-view').classList.add('hidden');
+
+    const select = document.getElementById('jd-resume-select');
+    select.innerHTML = '<option value="" disabled selected>-- Select a Base Resume --</option>';
+    currentResumes.forEach(r => {
+        select.innerHTML += `<option value="${r.id}">${r.filename}</option>`;
+    });
 }
 
 async function fetchAnalytics() {
@@ -450,6 +475,7 @@ function renderJobsList() {
         let scoreColor = job.fit_score >= 80 ? 'var(--success)' : (job.fit_score >= 60 ? 'var(--warning)' : 'var(--danger)');
         div.innerHTML = `
             <h4>${job.company_name || 'Unknown Company'}</h4>
+            <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem;"><i class="fa-solid fa-file-pdf"></i> ${job.resume_filename || 'Unknown'}</div>
             <div class="score-badge" style="background: ${scoreColor}22; color: ${scoreColor}">${job.fit_score || 0}% Fit</div>
         `;
         
