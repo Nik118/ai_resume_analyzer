@@ -8,27 +8,27 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- FontAwesome for Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
     
-    <div class="app-layout">
+    <div class="app-container">
         <!-- Sidebar -->
         <aside class="sidebar">
-            <div class="sidebar-header">
-                <h2><i class="fa-solid fa-file-signature" style="color: var(--accent-primary);"></i> Resume AI</h2>
+            <div class="brand" style="font-weight: 700; font-size: 1.5rem;">
+                <i class="fa-solid fa-file-signature" style="color: var(--accent-primary);"></i> Resume AI
             </div>
             
             <div class="upload-section">
                 <input type="file" id="resume-upload" accept=".pdf,.docx" hidden>
-                <button class="primary-btn w-100" onclick="document.getElementById('resume-upload').click()">
+                <button class="primary-btn full-width" onclick="document.getElementById('resume-upload').click()">
                     <i class="fa-solid fa-cloud-arrow-up"></i> Upload Resume
                 </button>
                 <div id="upload-status" class="status-message hidden"></div>
             </div>
 
-            <div class="sidebar-nav mt-3 mb-2" style="padding: 0 1.5rem;">
-                <button class="primary-btn w-100" id="btn-global-jobs" style="background: var(--accent-primary); border-radius: 8px;"><i class="fa-solid fa-list-check"></i> All Job Applications</button>
+            <div class="sidebar-nav mb-3" style="margin-top: -0.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1.5rem;">
+                <button class="primary-btn full-width" id="btn-global-jobs" style="background: var(--accent-primary); border-radius: 8px;"><i class="fa-solid fa-list-check"></i> All Job Applications</button>
             </div>
 
             <nav class="resume-list" id="resume-list">
@@ -38,14 +38,7 @@
 
         <!-- Main Content -->
         <main class="main-content">
-            <!-- Empty State -->
-            <div id="empty-state" class="glass-panel main-panel active flex-center">
-                <div class="empty-message">
-                    <i class="fa-solid fa-wand-magic-sparkles"></i>
-                    <h2>Welcome to AI Resume Analyzer</h2>
-                    <p>Upload a resume or view all job applications to get started.</p>
-                </div>
-            </div>
+
 
             <!-- Resume Dashboard -->
             <div id="resume-dashboard" class="glass-panel main-panel">
@@ -124,7 +117,7 @@
                 <!-- Kanban Board View -->
                 <div id="kanban-board-view">
                     <div class="flex-between mb-3">
-                        <h3>Global Job Pipeline</h3>
+                        <h3>Job Pipeline</h3>
                         <button class="primary-btn btn-sm" id="btn-new-job"><i class="fa-solid fa-plus"></i> Analyze New Job</button>
                     </div>
                     <div class="kanban-board">

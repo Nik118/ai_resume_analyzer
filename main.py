@@ -32,6 +32,9 @@ if not os.path.exists("static"):
     os.makedirs("static")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+if not os.path.exists("uploads"):
+    os.makedirs("uploads")
+
 
 @app.get("/")
 def serve_frontend():
@@ -194,6 +197,11 @@ def upload_resume(file: UploadFile = File(...), db: Session = Depends(database.g
         db.commit()
         db.refresh(db_resume)
 
+        # Save file to disk for downloading later
+        file_path = os.path.join("uploads", f"{db_resume.id}_{file.filename}")
+        with open(file_path, "wb") as f:
+            f.write(contents)
+
         return ResumeVersionResponse(**_format_resume(db_resume))
     except Exception as e:
         raise HTTPException(
@@ -214,7 +222,32 @@ def delete_resume(resume_id: int, db: Session = Depends(database.get_db)):
     db.query(models.JobTarget).filter(models.JobTarget.resume_id == resume_id).delete()
     db.delete(resume)
     db.commit()
+    
+    # Try to delete the file
+    file_path = os.path.join("uploads", f"{resume_id}_{resume.filename}")
+    if os.path.exists(file_path):
+        try:
+            os.remove(file_path)
+        except OSError:
+            pass
+            
     return {"status": "deleted"}
+
+@app.get("/resumes/{resume_id}/download")
+def download_resume(resume_id: int, db: Session = Depends(database.get_db)):
+    resume = (
+        db.query(models.ResumeVersion)
+        .filter(models.ResumeVersion.id == resume_id)
+        .first()
+    )
+    if not resume:
+        raise HTTPException(status_code=404, detail="Resume not found")
+        
+    file_path = os.path.join("uploads", f"{resume_id}_{resume.filename}")
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Resume file not found on server. This is likely an old resume uploaded before file saving was supported.")
+        
+    return FileResponse(file_path, media_type="application/octet-stream", filename=resume.filename)
 
 
 @app.post("/resumes/{resume_id}/roast")

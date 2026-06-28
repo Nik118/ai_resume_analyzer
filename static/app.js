@@ -11,6 +11,9 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-roast').addEventListener('click', handleRoast);
 
     document.getElementById('btn-global-jobs').addEventListener('click', () => switchTab('global-jobs'));
+    
+    // Load Global Jobs dashboard by default
+    switchTab('global-jobs');
 
     // Tabs
     document.getElementById('tab-overview').addEventListener('click', () => switchTab('overview'));
@@ -107,7 +110,6 @@ function switchTab(tab) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
     
-    document.getElementById('empty-state').classList.remove('active');
     document.getElementById('resume-dashboard').classList.remove('active');
     document.getElementById('global-jobs-dashboard').classList.remove('active');
 
@@ -184,13 +186,26 @@ async function deleteResume(id) {
         currentResumes = currentResumes.filter(r => r.id !== id);
         if (selectedResumeId === id) {
             selectedResumeId = null;
-            document.getElementById('resume-dashboard').classList.add('hidden');
-            document.getElementById('empty-state').classList.add('active');
+            switchTab('global-jobs');
         }
         renderResumeList();
         showToast('Resume deleted', 'success');
     } catch (error) {
         showToast(error.message, 'error');
+    }
+}
+
+async function downloadResume(id) {
+    if (!id) return;
+    try {
+        const response = await fetch(`${API_BASE}/resumes/${id}/download`, { method: 'HEAD' });
+        if (!response.ok) {
+            showToast("Resume file not found. It may be an older upload.", "error");
+            return;
+        }
+        window.open(`${API_BASE}/resumes/${id}/download`, '_blank');
+    } catch (error) {
+        showToast("Failed to verify download", "error");
     }
 }
 
@@ -362,14 +377,17 @@ function renderResumeList() {
         item.className = `resume-item ${r.id === selectedResumeId ? 'active' : ''}`;
         
         const infoDiv = document.createElement('div');
-        infoDiv.innerHTML = `<div style="font-weight: 600;">${r.filename}</div><div style="font-size: 0.8rem; color: var(--text-muted);">${r.experience_years} Years Exp</div>`;
+        infoDiv.innerHTML = `<div style="font-weight: 600; font-size: 0.95rem; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 140px;">${r.filename}</div><div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">${r.experience_years} Years Exp</div>`;
         infoDiv.style.flexGrow = '1';
+        infoDiv.style.minWidth = '0'; // allow text truncation
+        infoDiv.style.cursor = 'pointer';
         infoDiv.onclick = () => selectResume(r.id);
         
         const rightDiv = document.createElement('div');
         rightDiv.style.display = 'flex';
         rightDiv.style.alignItems = 'center';
-        rightDiv.style.gap = '10px';
+        rightDiv.style.gap = '8px';
+        rightDiv.style.flexShrink = '0';
         
         if(r.ats_score) rightDiv.innerHTML += `<div class="score-badge">${r.ats_score}</div>`;
         
@@ -393,7 +411,7 @@ function selectResume(id) {
     const resume = currentResumes.find(r => r.id === id);
     if (!resume) return;
 
-    document.getElementById('empty-state').classList.remove('active');
+    document.getElementById('global-jobs-dashboard').classList.remove('active');
     document.getElementById('resume-dashboard').classList.add('active');
     document.getElementById('dash-title').innerText = resume.filename;
 
@@ -474,9 +492,17 @@ function renderJobsList() {
         
         let scoreColor = job.fit_score >= 80 ? 'var(--success)' : (job.fit_score >= 60 ? 'var(--warning)' : 'var(--danger)');
         div.innerHTML = `
-            <h4>${job.company_name || 'Unknown Company'}</h4>
-            <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem;"><i class="fa-solid fa-file-pdf"></i> ${job.resume_filename || 'Unknown'}</div>
-            <div class="score-badge" style="background: ${scoreColor}22; color: ${scoreColor}">${job.fit_score || 0}% Fit</div>
+            <div class="flex-between" style="align-items: flex-start; margin-bottom: 0.5rem; gap: 0.5rem;">
+                <h4 style="margin: 0; line-height: 1.2;">${job.company_name || 'Unknown Company'}</h4>
+                <div class="score-badge" style="position: static; background: ${scoreColor}22; color: ${scoreColor}; flex-shrink: 0;">${job.fit_score || 0}% Fit</div>
+            </div>
+            <div class="flex-between" style="align-items: center; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 0.5rem; margin-top: 0.5rem;">
+                <div style="font-size: 0.75rem; color: var(--text-muted); text-overflow: ellipsis; overflow: hidden; white-space: nowrap;"><i class="fa-solid fa-file-pdf"></i> ${job.resume_filename || 'Unknown'}</div>
+                <div style="display: flex; gap: 4px; flex-shrink: 0;">
+                    <button class="icon-btn" style="font-size: 0.9rem;" onclick="event.stopPropagation(); downloadResume(${job.resume_id})" title="Download Resume"><i class="fa-solid fa-download"></i></button>
+                    <button class="icon-btn" style="font-size: 0.9rem;" onclick="event.stopPropagation(); selectResume(${job.resume_id})" title="Open Resume Dashboard"><i class="fa-solid fa-arrow-up-right-from-square"></i></button>
+                </div>
+            </div>
         `;
         
         div.addEventListener('dragstart', handleDragStart);
